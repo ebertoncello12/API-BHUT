@@ -1,41 +1,35 @@
-const express = require('express');
-const axios = require('axios');
-const bodyParser = require('body-parser');
-const connectToDatabase = require('./db');
-const mongoose = require('mongoose');
-const path = require('path');
-const cors = require('cors');
-const { connectToRabbitMQ } = require('./rabbitmq');
-const { startMessageConsumer } = require('./messageConsumer');
+// Importando as bibliotecas necessárias
+const express = require('express'); // Biblioteca para criar o servidor web
+const axios = require('axios'); // Biblioteca para fazer requisições HTTP
+const bodyParser = require('body-parser'); // Biblioteca para processar o corpo das requisições
+const connectToDatabase = require('./db/db'); // Função para conectar ao banco de dados
+const mongoose = require('mongoose'); // Biblioteca para interagir com o MongoDB
+const path = require('path'); // Biblioteca para lidar com caminhos de arquivos
+const cors = require('cors'); // Middleware para permitir requisições de origens diferentes
+const { connectToRabbitMQ } = require('./rabbitmq'); // Função para conectar ao RabbitMQ
+const { startMessageConsumer } = require('./messageConsumer'); // Função para iniciar o consumidor de mensagens do RabbitMQ
+const Log = require('./models/logModel'); // Modelo do Mongoose para os registros de log
 
+// Criando a aplicação Express
 const app = express();
+
+// Definindo a porta em que o servidor irá escutar
 const PORT = 5500;
+
+// URL da API externa
 const EXTERNAL_API_URL = 'http://api-test.bhut.com.br:3000';
 
-app.use(bodyParser.json());
-app.use(cors());
-app.use(express.static('public'));
+// Configurando middlewares
+app.use(bodyParser.json()); // Parseia o corpo das requisições para formato JSON
+app.use(cors()); // Permite requisições de origens diferentes
+app.use(express.static('public')); // Serve arquivos estáticos na pasta 'public'
 
-const carSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  brand: { type: String },
-  price: { type: String },
-  age: { type: Number },
-});
-
-const Car = mongoose.model('Car', carSchema);
-
-const logSchema = new mongoose.Schema({
-  data_hora: { type: Date, default: Date.now, required: true },
-  car_id: { type: mongoose.Schema.Types.ObjectId, required: true },
-});
-
-const Log = mongoose.model('log', logSchema);
-
+// Conectando ao banco de dados MongoDB
 connectToDatabase()
   .then(() => {
     console.log('Conexão com o MongoDB estabelecida com sucesso');
 
+    // Rota para listar todos os carros
     app.get('/api/listCars', async (req, res) => {
       try {
         const response = await axios.get(`${EXTERNAL_API_URL}/api/cars`);
@@ -46,6 +40,7 @@ connectToDatabase()
       }
     });
 
+    // Rota para obter todos os registros de log
     app.get('/api/logs', async (req, res) => {
       try {
         const logs = await Log.find();
@@ -56,10 +51,12 @@ connectToDatabase()
       }
     });
 
+    // Rota para criar um novo carro
     app.post('/api/createCar', async (req, res) => {
       try {
         const { title, brand, price, age } = req.body;
 
+        // Dados do carro a serem enviados para a API externa
         const externalCarData = {
           title,
           brand,
@@ -70,6 +67,7 @@ connectToDatabase()
         let createdCar;
 
         try {
+          // Envia os dados do carro para a API externa e recebe a resposta com o carro criado
           const response = await axios.post(`${EXTERNAL_API_URL}/api/cars`, externalCarData);
           createdCar = response.data;
         } catch (error) {
@@ -77,18 +75,25 @@ connectToDatabase()
           return res.status(500).json({ error: 'Erro ao criar registro na API externa.' });
         }
 
+        // Cria um novo registro de log relacionado ao carro criado
         const log = new Log({
           car_id: createdCar._id,
         });
 
+        // Salva o registro de log no banco de dados
         await log.save();
 
+        // Conecta ao RabbitMQ para enviar uma mensagem para a fila
         const rabbitMqConnection = await connectToRabbitMQ();
         const { channel, queue } = rabbitMqConnection;
 
-        const messageToQueue = { car_id: log.car_id, message: 'Novo carro criado, menssagem atraves de webSocket' };
+        // Monta a mensagem a ser enviada para a fila
+        const messageToQueue = { car_id: log.car_id, message: 'Novo carro criado, mensagem através de webSocket' };
+
+        // Envia a mensagem para a fila
         channel.sendToQueue(queue, Buffer.from(JSON.stringify(messageToQueue)), { persistent: true });
 
+        // Retorna a mensagem enviada
         res.json(messageToQueue);
       } catch (error) {
         console.error('Erro ao criar carro:', error);
@@ -96,9 +101,10 @@ connectToDatabase()
       }
     });
 
+    // Inicia o servidor na porta definida
     const server = app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
-      startMessageConsumer(server);
+      startMessageConsumer(server); // Inicia o consumidor de mensagens do RabbitMQ
     });
   })
   .catch((error) => {

@@ -140,7 +140,7 @@
         .catch(error => console.error("Erro ao obter a lista de carros:", error));
     }
 
-    // Function to submit car form
+    // Funçao para enviar o Formluario
     function submitCarForm(event) {
       event.preventDefault();
 
@@ -150,7 +150,7 @@
       const price = formElement.price.value;
       const age = formElement.age.value;
 
-      // Send car data to the server
+      // Envia o Carro com o BODY com o conteudo
       fetch("/api/createCar", {
         method: "POST",
         headers: {
@@ -163,7 +163,7 @@
         console.log(data);
         console.log(data.message);
 
-        // Extract the ID from the server response
+        // extraimos o id do carro para usar na mensagem
         const carId = data.car_id;
 
         // Show SweetAlert with the car ID
@@ -171,10 +171,10 @@
           icon: 'success',
           title: `Carro ID: ${carId} ${data.message}.`,
           showConfirmButton: false,
-          timer: 3000 // Close alert after 3 seconds
+          timer: 3000 // Fechamos depois de 3 segundos 
         });
 
-        // Update car log on the page
+        // Atualizamos um log novo quando enviado
         fetch("/api/logs")
           .then(response => response.json())
           .then(logs => {
@@ -192,15 +192,15 @@
       });
     }
 
-    // Add event listener to the fetch car list button
+    // Ouvintes 
     const fetchCarListBtn = document.getElementById("fetchCarListBtn");
     fetchCarListBtn.addEventListener("click", fetchAndDisplayCarList);
 
-    // Add event listener to the car form submit
+    // Ouvintes para Car Forms
     const carForm = document.getElementById("carForm");
     carForm.addEventListener("submit", submitCarForm);
 
-    // Fetch and display car log when the page is loaded
+    // ASsim que carregado a pagina inteira chamamos um FETCH para e
     window.addEventListener("load", () => {
       fetch("/api/logs")
         .then(response => response.json())
