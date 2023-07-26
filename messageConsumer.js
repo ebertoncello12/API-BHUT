@@ -1,5 +1,6 @@
 const amqp = require('amqplib');
 const socketio = require('socket.io');
+const axios = require('axios');
 
 async function startMessageConsumer(server) {
   const io = socketio(server);
@@ -13,11 +14,23 @@ async function startMessageConsumer(server) {
 
     channel.consume(
       queue,
-      (message) => {
+      async (message) => {
         if (message !== null) {
           const content = JSON.parse(message.content.toString());
           io.emit('car_created', content);
           channel.ack(message);
+
+          // Enviar o webhook para o Discord
+          try {
+            const webhookURL = 'https://discord.com/api/webhooks/1133807070718730260/Ttk41hzKhJ6LAwtl2K2R_ZONAtuhn3DOsDSo1Hwhh5r9mMK3YcmgswInk4ydGBeL3Gtg';
+            const webhookData = {
+              content: `Novo carro cadastrado!\nID do Carro: ${content.car_id}`,
+            };
+
+            await axios.post(webhookURL, webhookData);
+          } catch (error) {
+            console.error('Erro ao enviar o webhook para o Discord:', error);
+          }
         }
       },
       { noAck: false }
