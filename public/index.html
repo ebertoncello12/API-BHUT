@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://unpkg.com/toastify-js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inserir Carro</title>
+  <style>
+     body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 90px;
+      padding: 0;
+    }
+    h1, h2 {
+      text-align: center;
+      margin: 20px 0;
+    }
+    form {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #ffffff;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    input, button {
+      display: block;
+      width: 90%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    button {
+      background-color: #007BFF;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      max-width: 600px;
+      margin: 20px auto;
+    }
+    li {
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .log-title {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .car-log-container,
+    .car-list-container {
+      flex: 1;
+      padding: 10px;
+      max-width: 400px;
+    }
+    .car-log-container {
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .car-list-container {
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.18/dist/sweetalert2.all.min.js"></script>
+</head>
+<body>
+  <h1>POST /api/listCars </h1>
+  <form id="carForm">
+    <label for="title">Título</label>
+    <input type="text" id="title" name="title" required>
+    <label for="brand">Marca:</label>
+    <input type="text" id="brand" name="brand" required>
+    <label for="price">Preço:</label>
+    <input type="text" id="price" name="price" required>
+    <label for="age">Ano:</label>
+    <input type="number" id="age" name="age" required>
+    <button type="submit">Inserir Carro</button>
+  </form>
+
+  <div style="display: flex; justify-content: space-around;">
+    <div class="car-log-container">
+      <h2 class="log-title">GET api/logs</h2>
+      <ul id="carLog"></ul>
+    </div>
+
+    <div class="car-list-container">
+      <h2 class="log-title">GET api/listCars</h2>
+      <button id="fetchCarListBtn">GET CARS</button>
+      <ul id="carList"></ul>
+    </div>
+  </div>
+
+  <script>
+    function displayCarLog(logs) {
+      const carLogElement = document.getElementById("carLog");
+      carLogElement.innerHTML = ""; // Clear the list before adding new logs
+
+      logs.forEach(log => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `Carro ID: ${log.car_id}, Data/Hora: ${log.data_hora}`;
+        carLogElement.appendChild(listItem);
+      });
+    }
+
+    // Function to display car list
+    function displayCarList(cars) {
+      const carListElement = document.getElementById("carList");
+      carListElement.innerHTML = ""; // Clear the list before adding new cars
+
+      cars.forEach(car => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `Título: ${car.title}, Marca: ${car.brand}, Preço: ${car.price}, Ano: ${car.age}`;
+        carListElement.appendChild(listItem);
+      });
+    }
+
+    // Function to fetch and display car list
+    function fetchAndDisplayCarList() {
+      fetch("/api/listCars")
+        .then(response => response.json())
+        .then(cars => {
+          displayCarList(cars);
+        })
+        .catch(error => console.error("Erro ao obter a lista de carros:", error));
+    }
+
+    // Function to submit car form
+    function submitCarForm(event) {
+      event.preventDefault();
+
+      const formElement = event.target;
+      const title = formElement.title.value;
+      const brand = formElement.brand.value;
+      const price = formElement.price.value;
+      const age = formElement.age.value;
+
+      // Send car data to the server
+      fetch("/api/createCar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ title, brand, price, age })
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log(data);
+        console.log(data.message);
+
+        // Extract the ID from the server response
+        const carId = data.car_id;
+
+        // Show SweetAlert with the car ID
+        Swal.fire({
+          icon: 'success',
+          title: `Carro ID: ${carId} ${data.message}.`,
+          showConfirmButton: false,
+          timer: 3000 // Close alert after 3 seconds
+        });
+
+        // Update car log on the page
+        fetch("/api/logs")
+          .then(response => response.json())
+          .then(logs => {
+            displayCarLog(logs);
+          })
+          .catch(error => console.error("Erro ao obter os logs de carros:", error));
+      })
+      .catch(error => {
+        console.error("Erro ao criar carro:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro',
+          text: 'Erro ao criar carro. Por favor, tente novamente.',
+        });
+      });
+    }
+
+    // Add event listener to the fetch car list button
+    const fetchCarListBtn = document.getElementById("fetchCarListBtn");
+    fetchCarListBtn.addEventListener("click", fetchAndDisplayCarList);
+
+    // Add event listener to the car form submit
+    const carForm = document.getElementById("carForm");
+    carForm.addEventListener("submit", submitCarForm);
+
+    // Fetch and display car log when the page is loaded
+    window.addEventListener("load", () => {
+      fetch("/api/logs")
+        .then(response => response.json())
+        .then(logs => {
+          displayCarLog(logs);
+        })
+        .catch(error => console.error("Erro ao obter os logs de carros:", error));
+    });
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.25.0/esm/index.js"></script>
+  <script src="https://unpkg.com/toastify-js"></script>
+</body>
+</html>
