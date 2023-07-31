@@ -1,33 +1,36 @@
 const amqp = require('amqplib'); // Biblioteca para interagir com o RabbitMQ
 const socketio = require('socket.io'); // Biblioteca para lidar com WebSockets
 const axios = require('axios'); // Biblioteca para fazer requisições HTTP
+const { connectToRabbitMQ } = require('./rabbitmq');
 
 // Função assíncrona para iniciar o consumidor de mensagens
-async function startMessageConsumer(server) {
+async function startMessageConsumer(server) { // FUnçao Async  responsavel por enviar webhook , websocket e iniciar o consumidor de mensageria
   const io = socketio(server); // Inicializa o servidor de WebSockets
 
   try {
-    const connection = await amqp.connect('amqp://localhost'); // Conecta ao RabbitMQ
-    const channel = await connection.createChannel(); // Cria um canal de comunicação
-    const queue = 'car_created'; // Nome da fila para a mensagem do carro criado
+    const { connection, channel, queue } = await connectToRabbitMQ();
 
-    await channel.assertQueue(queue, { durable: true }); // Verifica a existência da fila, se não existir, ela é criada
+    // sintaxe da biblioteca rabbit usa o parametro queue obrigatorio , e o usamos o durable para persisir 
+    await channel.assertQueue(queue, { durable: true }); // Usando o metodo assertQeue do rabbit verificamos se ja a uma fila 
+    // assim persistindo as mensagens
 
     // Função para consumir mensagens da fila
-    channel.consume(
+    channel.consume( // Sintaxe do Rabbit  queue , callback , options 
       queue,
-      async (message) => {
-        if (message !== null) {
-          const content = JSON.parse(message.content.toString()); // Converte o conteúdo da mensagem para um objeto JavaScript
-          io.emit('car_created', content); // Emite um evento para todos os clientes conectados via WebSocket
+      async (message) => { // Func Async Callback pela arrow Func 
+        if (message !== null) { // Diferente de nullo
+          const content = JSON.parse(message.content.toString()); //cria content armazena o conteudo e Converte em mensagem para um objeto
+                                                                /// JavaScript
+          io.emit('car_created', content); // usando a biblioteca do socket.io para enviar um evento para todos cliente conectados
 
-          channel.ack(message); // Confirma o recebimento da mensagem para o RabbitMQ
+          channel.ack(message); // Importante Envia um joia para o Rabbit , onde a mensagem foi entregue e pode ser removida da 
+                                // fila asism entrando outra mensagem
 
           // Enviar o webhook para o Discord
           try {
             const webhookURL = 'https://discord.com/api/webhooks/1133807070718730260/Ttk41hzKhJ6LAwtl2K2R_ZONAtuhn3DOsDSo1Hwhh5r9mMK3YcmgswInk4ydGBeL3Gtg';
             const webhookData = {
-              content: `Novo carro cadastrado!\nID do Carro: ${content.car_id} mensagem enviada via WebHook`,
+              content: `Novo carro cadastrado!\nID do Carro: ${content.car_id} mensagem enviada via WebHook`, // Interpolarizaçao do id do carro
             };
             await axios.post(webhookURL, webhookData); // Envia a mensagem para o webhook do Discord
           } catch (error) {
@@ -35,7 +38,8 @@ async function startMessageConsumer(server) {
           }
         }
       },
-      { noAck: false } // Define que as mensagens não serão automaticamente confirmadas
+      { noAck: false } // Define que as mensagens não serão automaticamente confirmadas(channel.ack quuando for chamado)
+      // Deixando a entrega das mensagem seguras 
     );
 
     console.log('Consumidor de mensagens iniciado.');
