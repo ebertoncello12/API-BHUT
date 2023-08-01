@@ -15,7 +15,7 @@ async function connectToDatabase() { // FUnçao assincrona para conexao com o ba
     console.log('Conectado ao MongoDB com sucesso');
   } catch (error) {
     console.error('Erro ao conectar ao MongoDB:', error);
-    throw error;
+    throw error; // Aqui estamos relançando o CODIGO para qualquer codido que estiver usando POIS estamos usando na index.js 
   }
 }
 
